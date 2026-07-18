@@ -30,6 +30,40 @@
   ::selection{ background:var(--gold-soft); color:var(--black); }
   svg.icon{ width:16px; height:16px; display:block; flex-shrink:0; }
 
+  /* ===== Legal consent banner (always visible, no JS needed) ===== */
+  .consent-banner{
+    background:var(--black); color:var(--gold-2); text-align:center;
+    font-size:11px; line-height:1.7; padding:9px 16px;
+    position:relative; z-index:20;
+  }
+
+  /* ===== Legal consent modal (JS-enhanced, shown once per device) ===== */
+  .consent-modal{
+    position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center;
+    background:rgba(8,7,4,0.72); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+    padding:16px;
+  }
+  .consent-card{
+    background:var(--white); border-radius:18px; padding:22px 18px; max-width:440px; width:100%;
+    text-align:center; box-shadow:0 30px 70px -20px rgba(0,0,0,0.5);
+    max-height:92vh; overflow-y:auto;
+  }
+  .consent-badge{
+    display:inline-block; background:rgba(184,146,61,0.14); color:var(--gold);
+    font-size:10.5px; font-weight:800; letter-spacing:1px; padding:5px 12px; border-radius:999px; margin-bottom:12px;
+  }
+  .consent-card h2{ font-size:18px; font-weight:800; margin:0 0 10px; }
+  .consent-card p{ font-size:12.5px; line-height:1.9; color:#3a362c; margin:0 0 14px; }
+  .consent-form-wrap{
+    border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:14px; background:var(--paper);
+  }
+  .consent-form-wrap iframe{ width:100%; height:520px; border:none; display:block; }
+  .consent-card button{
+    display:block; width:100%; border:none; border-radius:11px; padding:13px; margin-bottom:10px;
+    background:var(--black); color:var(--gold-2); font-family:inherit; font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .consent-card a{ display:block; font-size:12px; color:var(--gold); font-weight:700; }
+
   /* ===== Hero (dark, glow, parallax floaters) ===== */
   .hero{
     position:relative; overflow:hidden; padding:60px 20px 46px; text-align:center;
@@ -371,6 +405,23 @@
 </head>
 <body>
 
+<div class="consent-banner">
+  با استفاده از این صفحه و انجام هرگونه واریز، شرایط و قوانین مندرج در آن را مطالعه‌کرده و پذیرفته‌اید.
+</div>
+
+<div class="consent-modal" id="consentModal" style="display:none;">
+  <div class="consent-card">
+    <div class="consent-badge">تأیید هویت و پذیرش قوانین</div>
+    <h2>مجموعه طلای علیزاده</h2>
+    <p>پیش از استفاده از این صفحه، لطفاً نام و شماره تماس خود را ثبت کرده و قوانین را بپذیرید.</p>
+    <div class="consent-form-wrap">
+      <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSc4ZfxpzE3P0yWphMfNDzvHfN9APozzdvUQ8I4t1vk6zlsU5A/viewform?embedded=true" loading="lazy">در حال بارگذاری فرم…</iframe>
+    </div>
+    <button id="consentAcceptBtn">فرم را تکمیل کردم، ادامه</button>
+    <a href="#rulesSection" id="consentReadBtn">مشاهده کامل قوانین</a>
+  </div>
+</div>
+
 <div class="ambient-layer">
   <div class="ambient-blob b1"></div>
   <div class="ambient-blob b2"></div>
@@ -614,6 +665,7 @@
         <li>هرگونه واریزی از حساب‌های لیست سیاه بانک مرکزی و حساب‌های دارای مسائل مالیاتی و حقوقی بر عهده شخص ارسال‌کننده می‌باشد و مجموعه حق کامل پیگیری قانونی این مسئله را محفوظ می‌دارد.</li>
         <li>فیش‌های واریزی باید دارای مشخصات کامل واریزکننده، کد پیگیری ۲۱ رقمی، واضح و خوانا باشند.</li>
         <li>پس از واریزی، عکس واریزی خود را واضح و با مشخصات کامل واریزکننده (مبدأ)، مشخصات حساب واریز شده (مقصد) و کد پیگیری کامل، برای خط حسابداری ارسال بفرمایید.</li>
+        <li>در صورت واریزی به بانک‌های دارای اختلال (مانند ملی، صادرات، تجارت یا هر بانک دیگری که دچار اختلال یا قطعی جدی سامانه است)، مجموعه طلای علیزاده در صورت امکان صرفاً واریزی شما را تأیید می‌کند؛ اما امکان آزادسازی جنس، بستن مظنه یا بازگشت وجه تا رفع کامل اختلال وجود نخواهد داشت.</li>
       </ul>
       <p class="rule-note">با تشکر از همکاری شما</p>
     </div>
@@ -879,11 +931,41 @@
     btn.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'}));
   }
 
+  function initConsentModal(){
+    const modal = $('#consentModal');
+    if(!modal) return;
+    const RENEW_MS = 30 * 24 * 60 * 60 * 1000; // re-ask once every 30 days
+    let lastAccepted = 0;
+    try{ lastAccepted = parseInt(localStorage.getItem('alizadegold_terms_accepted_at') || '0', 10) || 0; }catch(e){ lastAccepted = 0; }
+    const stillValid = lastAccepted && (Date.now() - lastAccepted) < RENEW_MS;
+    if(stillValid) return;
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    const closeModal = ()=>{
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    };
+    const acceptBtn = $('#consentAcceptBtn');
+    if(acceptBtn) acceptBtn.addEventListener('click', ()=>{
+      try{ localStorage.setItem('alizadegold_terms_accepted_at', String(Date.now())); }catch(e){}
+      closeModal();
+    });
+    const readBtn = $('#consentReadBtn');
+    if(readBtn) readBtn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      closeModal();
+      const target = document.getElementById('rulesSection');
+      if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  }
+
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', ()=>{ $('#logoImg').src = 'data:image/png;base64,' + LOGO_B64; initHeroEffects(); initAmbientGlow(); initScrollTop(); });
+    document.addEventListener('DOMContentLoaded', ()=>{ $('#logoImg').src = 'data:image/png;base64,' + LOGO_B64; initHeroEffects(); initAmbientGlow(); initScrollTop(); initConsentModal(); });
   } else {
     $('#logoImg').src = 'data:image/png;base64,' + LOGO_B64;
-    initHeroEffects(); initAmbientGlow(); initScrollTop();
+    initHeroEffects(); initAmbientGlow(); initScrollTop(); initConsentModal();
   }
 })();
 </script>
